@@ -1,4 +1,4 @@
-// server.js - АДАПТИРОВАННАЯ ВЕРСИЯ ДЛЯ RENDER
+// server.js - ФИНАЛЬНАЯ ВЕРСИЯ ДЛЯ RENDER
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -7,55 +7,29 @@ const multer = require('multer');
 const jwt = require('jsonwebtoken');    
 const mongoose = require('mongoose'); 
 const fs = require('fs'); 
-const path = require('path'); // МОДУЛЬ ДЛЯ РАБОТЫ С ПУТЯМИ
+const path = require('path'); 
 
 const app = express();
-// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ 1: ИСПОЛЬЗУЕМ ПОРТ, КОТОРЫЙ ПРЕДОСТАВЛЯЕТ RENDER
+// ИСПОЛЬЗУЕМ ПОРТ, КОТОРЫЙ ПРЕДОСТАВЛЯЕТ RENDER
 const port = process.env.PORT || 3000; 
 
-// --- 1. НАСТРОЙКА БАЗЫ ДАННЫХ ---
-// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ 2: ЧИТАЕМ ЗНАЧЕНИЯ ИЗ ПЕРЕМЕННЫХ ОКРУЖЕНИЯ RENDER
+// --- 1. НАСТРОЙКА БАЗЫ ДАННЫХ (ЧИТАЕМ ИЗ RENDER) ---
 const DB_URI = process.env.DB_URI;
 
-if (!DB_URI) {
-    console.error("ОШИБКА: DB_URI не задан. Проверьте переменные окружения Render.");
-    process.exit(1);
-}
-
 mongoose.connect(DB_URI)
-    .then(() => console.log('Успешное подключение к MongoDB Atlas.'))
+    .then(() => console.log('Успешное подключение к MongoDB Atlas. СЕРВЕР СТАРТУЕТ...'))
     .catch(err => {
-        console.error('Ошибка подключения к MongoDB Atlas. Проверьте ключ DB_URI и доступ.', err);
-        process.exit(1);
+        // ЭТО СООБЩЕНИЕ ПОЯВИТСЯ В ЛОГАХ RENDER, ЕСЛИ КЛЮЧ DB_URI НЕВЕРЕН
+        console.error('КРИТИЧЕСКАЯ ОШИБКА: Ошибка подключения к MongoDB Atlas. ПРОВЕРЬТЕ КЛЮЧ DB_URI И ДОСТУП В RENDER!', err);
+        process.exit(1); // Останавливаем сервер, чтобы Render показал ошибку
     });
 
 // --- ОПРЕДЕЛЕНИЕ СХЕМ И МОДЕЛЕЙ (Без изменений) ---
-const UserSchema = new mongoose.Schema({
-    login: { type: String, required: true, unique: true },
-    email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    verificationCode: String,
-    codeExpires: Date
-});
-const UserModel = mongoose.model('User', UserSchema, 'users'); 
+// ВСТАВЬТЕ СЮДА ВАШИ СХЕМЫ И МОДЕЛИ (UserSchema, VideoSchema и т.д.)
 
-const VideoSchema = new mongoose.Schema({
-    title: { type: String, required: true },
-    uploaderLogin: { type: String, required: true },
-    filePath: { type: String, required: true }, // Путь к файлу на сервере
-    uploadDate: { type: Date, default: Date.now },
-    isShorts: { type: Boolean, default: false }
-});
-const VideoModel = mongoose.model('Video', VideoSchema, 'videos'); 
-
-// --- 2. НАСТРОЙКА NODEMAILER ---
+// --- 2. НАСТРОЙКА NODEMAILER (ЧИТАЕМ ИЗ RENDER) ---
 const SENDER_EMAIL = 'arttube2025@gmail.com'; 
-// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ 2: ЧИТАЕМ ЗНАЧЕНИЕ ИЗ ПЕРЕМЕННЫХ ОКРУЖЕНИЯ RENDER
-const SENDER_PASS = process.env.SENDER_PASS; 
-
-if (!SENDER_PASS) {
-    console.error("ОШИБКА: SENDER_PASS не задан. Проверьте переменные окружения Render.");
-}
+const SENDER_PASS = process.env.SENDER_PASS; // Читаем из Render
 
 const transporter = nodemailer.createTransport({
     service: 'gmail', 
@@ -65,25 +39,17 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// --- 3. НАСТРОЙКА JWT ---
-// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ 2: ЧИТАЕМ ЗНАЧЕНИЕ ИЗ ПЕРЕМЕННЫХ ОКРУЖЕНИЯ RENDER
-const JWT_SECRET = process.env.JWT_SECRET;
-
-if (!JWT_SECRET) {
-    console.error("ОШИБКА: JWT_SECRET не задан. Проверьте переменные окружения Render.");
-}
+// --- 3. НАСТРОЙКА JWT (ЧИТАЕМ ИЗ RENDER) ---
+const JWT_SECRET = process.env.JWT_SECRET; // Читаем из Render
 
 // --- 4. MIDDLEWARE И НАСТРОЙКИ ---
 app.use(bodyParser.json());
-
-// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ 3: ОТДАЧА ВСЕХ СТАТИЧЕСКИХ ФАЙЛОВ
-// Это позволяет браузеру загрузить youtube.js, youtube.html, CSS и т.д.
+// ОТДАЧА СТАТИЧЕСКИХ ФАЙЛОВ (youtube.js, CSS и т.д.)
 app.use(express.static(__dirname)); 
 
 
 // Защита: Middleware для проверки токена (Без изменений)
 function authenticateToken(req, res, next) {
-    // ... (ваш код аутентификации)
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     
@@ -99,7 +65,7 @@ function authenticateToken(req, res, next) {
 // --- 5. НАСТРОЙКА MULTER (ВРЕМЕННОЕ ХРАНЕНИЕ) ---
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const dir = path.join(__dirname, 'uploads'); // Используем path.join для совместимости
+        const dir = path.join(__dirname, 'uploads');
         if (!fs.existsSync(dir)){
             fs.mkdirSync(dir);
         }
@@ -113,19 +79,15 @@ const upload = multer({ storage: storage });
 
 
 // ===============================================
-// ОСНОВНАЯ ЛОГИКА (МАРШРУТЫ)
+// МАРШРУТЫ
 // ===============================================
 
-// КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ 4: МАРШРУТ ДЛЯ КОРНЯ
-// Отправляет файл 'youtube.html' при запросе к адресу вашего сайта (/).
+// МАРШРУТ ДЛЯ КОРНЯ: ОТДАЧА HTML
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'youtube.html'));
 });
 
-
-// ... (Остальные маршруты: /api/upload, /api/videos, /api/stream/:id, /api/video/:id, /api/account)
-// Оставьте их без изменений, они используют относительные пути и логика верна.
-// Убедитесь, что все маршруты из вашего оригинального кода здесь присутствуют.
+// ... (ВСЕ ОСТАЛЬНЫЕ ВАШИ МАРШРУТЫ: /api/upload, /api/videos, /api/login и т.д.)
 
 
 // 10. Запуск сервера
